@@ -76,7 +76,7 @@ input[type=text]:focus { outline: none; border-bottom: 1.5px solid var(--text); 
 .pos { color: var(--green); }
 .neg { color: var(--red); }
 
-.fase-tag { font-size: 10px; padding: 1px 7px; border-radius: 20px; font-weight: 500; }
+.fase-tag { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 500; white-space: nowrap; }
 .ft1 { background: var(--green-bg); color: var(--green); }
 .ft2 { background: var(--amber-bg); color: var(--amber); }
 
@@ -135,6 +135,17 @@ select.st { font-size: 12px; border: 0.5px solid var(--border-md); border-radius
     <p>Controle de receitas, custos e distribuição entre sócios</p>
   </header>
 
+  <div style="display:flex;gap:8px;margin-bottom:1.5rem;align-items:center;flex-wrap:wrap">
+    <button onclick="exportData()" style="font-size:12px;padding:6px 14px;border:0.5px solid var(--border-md);border-radius:6px;background:var(--surface);color:var(--text);cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:6px">
+      ↓ Salvar dados
+    </button>
+    <label style="font-size:12px;padding:6px 14px;border:0.5px solid var(--border-md);border-radius:6px;background:var(--surface);color:var(--text);cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:6px">
+      ↑ Carregar dados
+      <input type="file" accept=".json" onchange="importData(event)" style="display:none">
+    </label>
+    <span id="save-status" style="font-size:12px;color:var(--muted)"></span>
+  </div>
+
   <div class="topbar">
     <div class="tabs">
       <button class="tab active" onclick="showTab('dre',this)">DRE</button>
@@ -154,7 +165,7 @@ select.st { font-size: 12px; border: 0.5px solid var(--border-md); border-radius
   <div id="page-dre" class="page active">
     <div class="card">
       <div class="card-head"><span>Máquinas ativas</span><span id="bdg-a" class="badge bg">9 alugadas</span></div>
-      <table><thead><tr><th style="width:30px">ID</th><th>Máquina</th><th>Cliente</th><th class="num" style="width:120px">R$/mês</th><th style="width:58px">Fase</th><th style="width:28px"></th></tr></thead>
+      <table><thead><tr><th style="width:30px">ID</th><th>Máquina</th><th>Cliente</th><th class="num" style="width:120px">R$/mês</th><th style="width:72px">Fase</th><th style="width:28px"></th></tr></thead>
       <tbody id="tb-a"></tbody>
       <tr class="tot"><td colspan="3">Total receitas ativas</td><td class="num" id="tot-a">—</td><td></td><td></td></tr></table>
       <button class="add-btn" onclick="addA()">+ máquina ativa</button>
@@ -353,7 +364,7 @@ function render() {
       <td><input type="text" value="${m.n}" onchange="A[${i}].n=this.value"></td>
       <td><input type="text" value="${m.c}" onchange="A[${i}].c=this.value"></td>
       <td class="num">${roy?'<span style="font-size:11px;color:var(--hint)">royalty </span>':''}<input class="ed" type="text" value="${fmt(m.v)}" onchange="A[${i}].v=pv(this.value);render()"></td>
-      <td><span class="fase-tag ft${f}">fase ${f}</span></td>
+      <td style="width:72px"><span class="fase-tag ft${f}">fase ${f}</span></td>
       <td><button class="del-btn" onclick="del(A,${m.id})">✕</button></td>
     </tr>`;
   });
@@ -523,6 +534,57 @@ function calcDist(arr, sA, tc, n1, n2, n3) {
 }
 
 render();
+
+function exportData() {
+  const data = {
+    version: 1,
+    mes: document.getElementById('mes').value,
+    n1: document.getElementById('n1') ? document.getElementById('n1').value : 'Sócio 1',
+    n2: document.getElementById('n2') ? document.getElementById('n2').value : 'Sócio 2',
+    n3: document.getElementById('n3') ? document.getElementById('n3').value : 'Sócio 3',
+    A, N, F, V, R
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const mes = document.getElementById('mes').value;
+  a.href = url;
+  a.download = 'dre-maquinas-' + mes.toLowerCase() + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  const st = document.getElementById('save-status');
+  st.textContent = 'Salvo: ' + mes + ' ' + new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+  setTimeout(() => st.textContent = '', 4000);
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.A) A = data.A;
+      if (data.N) N = data.N;
+      if (data.F) F = data.F;
+      if (data.V) V = data.V;
+      if (data.R) R = data.R;
+      if (data.mes) document.getElementById('mes').value = data.mes;
+      if (data.n1 && document.getElementById('n1')) document.getElementById('n1').value = data.n1;
+      if (data.n2 && document.getElementById('n2')) document.getElementById('n2').value = data.n2;
+      if (data.n3 && document.getElementById('n3')) document.getElementById('n3').value = data.n3;
+      render();
+      const st = document.getElementById('save-status');
+      st.style.color = 'var(--green)';
+      st.textContent = '✓ Dados carregados: ' + file.name;
+      setTimeout(() => { st.textContent = ''; st.style.color = 'var(--muted)'; }, 4000);
+    } catch(err) {
+      alert('Erro ao carregar arquivo. Verifique se é um JSON válido.');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
 </script>
 </body>
 </html>
