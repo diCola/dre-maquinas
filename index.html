@@ -45,8 +45,16 @@
       <option value="11">Novembro</option>
       <option value="12">Dezembro</option>
     </select>
+    <select class="mes-sel" id="mes-status" title="Status do mês" onchange="onMesStatusChange(this.value)">
+      <option value="aberto">Aberto</option>
+      <option value="exercicio">Em exercício</option>
+      <option value="fechado">Fechado</option>
+    </select>
   </div>
   <p id="dre-periodo" class="toolbar-status" style="margin:0 0 12px;font-weight:500;color:var(--text)"></p>
+  <div id="fechado-banner" style="display:none;margin-bottom:12px;padding:9px 16px;background:#FFF3F3;border:0.5px solid #E8AAAA;border-radius:8px;font-size:12px;color:#A32D2D">
+    Mês fechado — sem alterações permitidas. Para editar, mude o status para <strong>Em exercício</strong>.
+  </div>
 
   <!-- Receitas das máquinas -->
   <div id="page-dre" class="page active">

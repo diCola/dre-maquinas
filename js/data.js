@@ -11,6 +11,23 @@ const MESES = [
 const STORAGE_KEY    = 'dre-maquinas-v3';
 const STORAGE_KEY_V2 = 'dre-maquinas-por-mes';
 
+/**
+ * Status de cada mês: 'aberto' | 'exercicio' | 'fechado'
+ * aberto    = mês futuro, planejamento livre
+ * exercicio = mês em andamento, aceita todas as alterações
+ * fechado   = encerrado, sem alterações permitidas
+ */
+let mesStatusMap = {};
+
+function getMesStatus(mk) {
+  return mesStatusMap[mk] || 'aberto';
+}
+
+function setMesStatus(mk, status) {
+  mesStatusMap[mk] = status;
+  savePorMesStorage();
+}
+
 let nid = 200;
 
 /**
@@ -206,7 +223,7 @@ function initDefaultData() {
 
 function savePorMesStorage() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ nid, porMes, maqCatalogo, maqStatus }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ nid, porMes, maqCatalogo, maqStatus, mesStatusMap }));
   } catch (_) {}
 }
 
@@ -219,6 +236,7 @@ function loadPorMesStorage() {
       if (o.porMes && typeof o.porMes === 'object') porMes = o.porMes;
       if (Array.isArray(o.maqCatalogo)) maqCatalogo = o.maqCatalogo;
       if (o.maqStatus && typeof o.maqStatus === 'object') maqStatus = o.maqStatus;
+      if (o.mesStatusMap && typeof o.mesStatusMap === 'object') mesStatusMap = o.mesStatusMap;
       return;
     }
     // Tentar migrar formato v2

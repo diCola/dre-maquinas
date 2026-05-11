@@ -37,6 +37,23 @@ header p { font-size: 13px; color: var(--muted); margin-top: 4px; }
 
 .mes-sel { border: 0.5px solid var(--border-md); border-radius: var(--radius-sm); padding: 7px 12px; font-size: 13px; font-family: 'DM Sans', sans-serif; background: var(--surface); color: var(--text); cursor: pointer; }
 
+/* Status do mês */
+#mes-status { font-weight: 500; transition: color .15s, border-color .15s; }
+.mes-st-aberto   { color: var(--purple);  border-color: var(--purple-bd);  background: var(--purple-bg); }
+.mes-st-exercicio{ color: var(--green);   border-color: var(--green-bd);   background: var(--green-bg);  }
+.mes-st-fechado  { color: var(--red);     border-color: #E8AAAA;           background: #FFF3F3;          }
+
+/* Bloqueio visual quando mês está fechado */
+body.mes-fechado #tb-a input,
+body.mes-fechado #tb-n input,
+body.mes-fechado #tb-f input,
+body.mes-fechado #tb-v input,
+body.mes-fechado #tb-r input { color: var(--muted); cursor: default; }
+body.mes-fechado #tb-r select { pointer-events: none; opacity: 0.6; }
+body.mes-fechado .to-neg-btn,
+body.mes-fechado .add-btn,
+body.mes-fechado .del-btn { display: none; }
+
 .page { display: none; }
 .page.active { display: block; }
 

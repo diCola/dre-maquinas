@@ -64,27 +64,42 @@ function showTab(p, btn) {
   render();
 }
 
+// ─── Status do mês ────────────────────────────────────────────────────────────
+
+function onMesStatusChange(value) {
+  setMesStatus(mesKeyFromSelectors(), value);
+  render();
+}
+
+function isMesFechado() {
+  return getMesStatus(mesKeyFromSelectors()) === 'fechado';
+}
+
 // ─── Helpers de edição ────────────────────────────────────────────────────────
 
 function updateMaqNome(id, value) {
+  if (isMesFechado()) return;
   const m = maqCatalogo.find(x => x.id === id);
   if (m) m.n = value;
   savePorMesStorage();
 }
 
 function updateMaqCliente(id, value) {
+  if (isMesFechado()) return;
   const m = maqCatalogo.find(x => x.id === id);
   if (m) m.c = value;
   savePorMesStorage();
 }
 
 function updateMaqSituacao(id, value) {
+  if (isMesFechado()) return;
   const m = maqCatalogo.find(x => x.id === id);
   if (m) m.p = value;
   savePorMesStorage();
 }
 
 function updateMaqPrevisao(id, value) {
+  if (isMesFechado()) return;
   const m = maqCatalogo.find(x => x.id === id);
   if (m) m.pr = value;
   savePorMesStorage();
@@ -93,6 +108,7 @@ function updateMaqPrevisao(id, value) {
 // ─── Adicionar / remover ──────────────────────────────────────────────────────
 
 function addA() {
+  if (isMesFechado()) return;
   const id = ++nid;
   const mk = mesKeyFromSelectors();
   maqCatalogo.push({ id, n: 'Nova máquina', c: '', p: '', pr: '' });
@@ -102,6 +118,7 @@ function addA() {
 }
 
 function addN() {
+  if (isMesFechado()) return;
   const id = ++nid;
   const mk = mesKeyFromSelectors();
   maqCatalogo.push({ id, n: 'Nova máquina', c: '', p: '', pr: '' });
@@ -111,20 +128,24 @@ function addN() {
 }
 
 function addF() {
+  if (isMesFechado()) return;
   F.push({ id: ++nid, d: 'Novo custo', v: 0 });
   render();
 }
 function addV() {
+  if (isMesFechado()) return;
   V.push({ id: ++nid, d: 'Novo custo', v: 0 });
   render();
 }
 function addR() {
+  if (isMesFechado()) return;
   R.push({ id: ++nid, s: '', d: '', dt: '', v: 0, st: 'pendente' });
   render();
 }
 
 /** Remove máquina do catálogo e de todo o histórico. */
 function delMaquina(id) {
+  if (isMesFechado()) return;
   maqCatalogo = maqCatalogo.filter(m => m.id !== id);
   delete maqStatus[id];
   for (const key of Object.keys(porMes)) {
@@ -133,8 +154,9 @@ function delMaquina(id) {
   render();
 }
 
-/** Remove item de F, V ou R (máquinas ativas não são deletáveis). */
+/** Remove item de F, V ou R. */
 function del(arr, id) {
+  if (isMesFechado()) return;
   const i = arr.findIndex((x) => x.id === id);
   if (i > -1) arr.splice(i, 1);
   render();
@@ -147,6 +169,7 @@ function del(arr, id) {
  * Todos os meses seguintes herdarão o novo status automaticamente.
  */
 function enviarAtivaParaNegociacao(id) {
+  if (isMesFechado()) return;
   const mk = mesKeyFromSelectors();
   const m = maqCatalogo.find(x => x.id === id);
   if (!m || statusAt(id, mk) !== 'ativa') return;
@@ -163,6 +186,7 @@ function enviarAtivaParaNegociacao(id) {
  * Todos os meses seguintes herdarão o novo status automaticamente.
  */
 function enviarNegociacaoParaAtiva(id) {
+  if (isMesFechado()) return;
   const mk = mesKeyFromSelectors();
   const m = maqCatalogo.find(x => x.id === id);
   if (!m || statusAt(id, mk) !== 'negociacao') return;
@@ -180,6 +204,24 @@ function enviarNegociacaoParaAtiva(id) {
 
 function render() {
   const mk = mesKeyFromSelectors();
+  const fechado = getMesStatus(mk) === 'fechado';
+  const rd = fechado ? ' readonly' : '';
+
+  // Seletor de status do mês
+  const statusSel = document.getElementById('mes-status');
+  if (statusSel) {
+    const s = getMesStatus(mk);
+    statusSel.value = s;
+    statusSel.className = 'mes-sel mes-st-' + s;
+  }
+
+  // Banner de mês fechado
+  const fechadoBanner = document.getElementById('fechado-banner');
+  if (fechadoBanner) fechadoBanner.style.display = fechado ? '' : 'none';
+
+  // Aplica/remove bloqueio visual global
+  document.body.classList.toggle('mes-fechado', fechado);
+
   const n1 = document.getElementById('n1') ? document.getElementById('n1').value : 'Sócio 1';
   const n2 = document.getElementById('n2') ? document.getElementById('n2').value : 'Sócio 2';
   const n3 = document.getElementById('n3') ? document.getElementById('n3').value : 'Sócio 3';
@@ -210,9 +252,9 @@ function render() {
     const roy = m.v === 0 && m.c === 'ROYALTY';
     tb.innerHTML += `<tr>
       <td style="color:var(--hint);font-size:11px">${m.id}</td>
-      <td><input type="text" value="${esc(m.n)}" onchange="updateMaqNome(${m.id},this.value)"></td>
-      <td><input type="text" value="${esc(m.c)}" onchange="updateMaqCliente(${m.id},this.value)"></td>
-      <td class="num">${roy ? '<span style="font-size:11px;color:var(--hint)">royalty </span>' : ''}<input class="ed" type="text" value="${fmt(m.v)}" onchange="setValorAt(${m.id},'${mk}',pv(this.value));render()"></td>
+      <td><input type="text"${rd} value="${esc(m.n)}" onchange="updateMaqNome(${m.id},this.value)"></td>
+      <td><input type="text"${rd} value="${esc(m.c)}" onchange="updateMaqCliente(${m.id},this.value)"></td>
+      <td class="num">${roy ? '<span style="font-size:11px;color:var(--hint)">royalty </span>' : ''}<input class="ed"${rd} type="text" value="${fmt(m.v)}" onchange="setValorAt(${m.id},'${mk}',pv(this.value));render()"></td>
       <td style="width:72px"><span class="fase-tag ft${f}">fase ${f}</span></td>
       <td><button type="button" class="to-neg-btn" onclick="enviarAtivaParaNegociacao(${m.id})" title="Enviar para Em negociação / escritório. Máquinas ativas não podem ser excluídas.">→ Escritório</button></td>
     </tr>`;
@@ -227,10 +269,10 @@ function render() {
     const ne = m.p === 'NÃO EXISTE';
     tb.innerHTML += `<tr>
       <td style="color:var(--hint);font-size:11px">${m.id}</td>
-      <td><input type="text" value="${esc(m.n)}" onchange="updateMaqNome(${m.id},this.value)"></td>
-      <td><input type="text" value="${esc(m.p)}" onchange="updateMaqSituacao(${m.id},this.value)" style="${ne ? 'color:var(--red);font-weight:500' : ''}"></td>
-      <td class="num"><input class="ed" type="text" value="${fmt(m.v)}" onchange="setValorAt(${m.id},'${mk}',pv(this.value));render()"></td>
-      <td><input type="text" value="${esc(m.pr)}" onchange="updateMaqPrevisao(${m.id},this.value)" placeholder="mês/ano" style="width:68px;font-size:12px"></td>
+      <td><input type="text"${rd} value="${esc(m.n)}" onchange="updateMaqNome(${m.id},this.value)"></td>
+      <td><input type="text"${rd} value="${esc(m.p)}" onchange="updateMaqSituacao(${m.id},this.value)" style="${ne ? 'color:var(--red);font-weight:500' : ''}"></td>
+      <td class="num"><input class="ed"${rd} type="text" value="${fmt(m.v)}" onchange="setValorAt(${m.id},'${mk}',pv(this.value));render()"></td>
+      <td><input type="text"${rd} value="${esc(m.pr)}" onchange="updateMaqPrevisao(${m.id},this.value)" placeholder="mês/ano" style="width:68px;font-size:12px"></td>
       <td><button type="button" class="to-neg-btn" onclick="enviarNegociacaoParaAtiva(${m.id})" title="Mover para Máquinas ativas">→ Ativas</button></td>
       <td><button class="del-btn" onclick="delMaquina(${m.id})">✕</button></td>
     </tr>`;
@@ -243,8 +285,8 @@ function render() {
   F.forEach((c, i) => {
     sF += c.v;
     tb.innerHTML += `<tr>
-      <td><input type="text" value="${esc(c.d)}" onchange="F[${i}].d=this.value"></td>
-      <td class="num"><input class="ed" type="text" value="${fmt(c.v)}" onchange="F[${i}].v=pv(this.value);render()"></td>
+      <td><input type="text"${rd} value="${esc(c.d)}" onchange="F[${i}].d=this.value"></td>
+      <td class="num"><input class="ed"${rd} type="text" value="${fmt(c.v)}" onchange="F[${i}].v=pv(this.value);render()"></td>
       <td><button class="del-btn" onclick="del(F,${c.id})">✕</button></td>
     </tr>`;
   });
@@ -256,8 +298,8 @@ function render() {
   V.forEach((c, i) => {
     sV += c.v;
     tb.innerHTML += `<tr>
-      <td><input type="text" value="${esc(c.d)}" onchange="V[${i}].d=this.value"></td>
-      <td class="num"><input class="ed" type="text" value="${fmt(c.v)}" onchange="V[${i}].v=pv(this.value);render()"></td>
+      <td><input type="text"${rd} value="${esc(c.d)}" onchange="V[${i}].d=this.value"></td>
+      <td class="num"><input class="ed"${rd} type="text" value="${fmt(c.v)}" onchange="V[${i}].v=pv(this.value);render()"></td>
       <td><button class="del-btn" onclick="del(V,${c.id})">✕</button></td>
     </tr>`;
   });
@@ -269,11 +311,11 @@ function render() {
   R.forEach((r, i) => {
     if (r.st === 'pendente') sR += r.v;
     tb.innerHTML += `<tr>
-      <td><input type="text" value="${esc(r.s)}" onchange="R[${i}].s=this.value" placeholder="nome"></td>
-      <td><input type="text" value="${esc(r.d)}" onchange="R[${i}].d=this.value" placeholder="descrição"></td>
-      <td><input type="text" value="${esc(r.dt)}" onchange="R[${i}].dt=this.value" placeholder="dd/mm" style="width:62px"></td>
-      <td class="num"><input class="ed" type="text" value="${fmt(r.v)}" onchange="R[${i}].v=pv(this.value);render()"></td>
-      <td><select class="st" onchange="R[${i}].st=this.value;render()">
+      <td><input type="text"${rd} value="${esc(r.s)}" onchange="R[${i}].s=this.value" placeholder="nome"></td>
+      <td><input type="text"${rd} value="${esc(r.d)}" onchange="R[${i}].d=this.value" placeholder="descrição"></td>
+      <td><input type="text"${rd} value="${esc(r.dt)}" onchange="R[${i}].dt=this.value" placeholder="dd/mm" style="width:62px"></td>
+      <td class="num"><input class="ed"${rd} type="text" value="${fmt(r.v)}" onchange="R[${i}].v=pv(this.value);render()"></td>
+      <td><select class="st"${rd ? ' disabled' : ''} onchange="R[${i}].st=this.value;render()">
         <option value="pendente"${r.st === 'pendente' ? ' selected' : ''}>pendente</option>
         <option value="pago"${r.st === 'pago' ? ' selected' : ''}>pago</option>
       </select></td>
