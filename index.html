@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DRE — Aluguel de Máquinas</title>
+<title>Aluguel de Máquinas</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <div class="app">
   <header>
-    <h1>DRE — Aluguel de Máquinas</h1>
+    <h1>Aluguel de Máquinas</h1>
     <p>Controle de receitas, custos e distribuição entre sócios</p>
   </header>
 
@@ -25,24 +25,34 @@
 
   <div class="topbar">
     <div class="tabs">
-      <button class="tab active" onclick="showTab('dre',this)">DRE</button>
+      <button class="tab active" onclick="showTab('dre',this)">Receitas das Máquinas</button>
       <button class="tab" onclick="showTab('dist',this)">Distribuição</button>
       <button class="tab" onclick="showTab('reemb',this)">Reembolsos</button>
       <button class="tab" onclick="showTab('regras',this)">Regras</button>
     </div>
-    <select class="mes-sel" id="mes">
-      <option>Janeiro</option><option>Fevereiro</option><option>Março</option>
-      <option>Abril</option><option selected>Maio</option><option>Junho</option>
-      <option>Julho</option><option>Agosto</option><option>Setembro</option>
-      <option>Outubro</option><option>Novembro</option><option>Dezembro</option>
+    <select class="mes-sel" id="ano" title="Ano"></select>
+    <select class="mes-sel" id="mes" title="Mês">
+      <option value="1">Janeiro</option>
+      <option value="2">Fevereiro</option>
+      <option value="3">Março</option>
+      <option value="4">Abril</option>
+      <option value="5" selected>Maio</option>
+      <option value="6">Junho</option>
+      <option value="7">Julho</option>
+      <option value="8">Agosto</option>
+      <option value="9">Setembro</option>
+      <option value="10">Outubro</option>
+      <option value="11">Novembro</option>
+      <option value="12">Dezembro</option>
     </select>
   </div>
+  <p id="dre-periodo" class="toolbar-status" style="margin:0 0 12px;font-weight:500;color:var(--text)"></p>
 
-  <!-- DRE -->
+  <!-- Receitas das máquinas -->
   <div id="page-dre" class="page active">
     <div class="card">
       <div class="card-head"><span>Máquinas ativas</span><span id="bdg-a" class="badge bg">9 alugadas</span></div>
-      <table><thead><tr><th style="width:30px">ID</th><th>Máquina</th><th>Cliente</th><th class="num" style="width:120px">R$/mês</th><th style="width:72px">Fase</th><th style="width:28px"></th></tr></thead>
+      <table><thead><tr><th style="width:30px">ID</th><th>Máquina</th><th>Cliente</th><th class="num" style="width:120px">R$/mês</th><th style="width:72px">Fase</th><th style="width:118px">Ação</th></tr></thead>
       <tbody id="tb-a"></tbody>
       <tr class="tot"><td colspan="3">Total receitas ativas</td><td class="num" id="tot-a">—</td><td></td><td></td></tr></table>
       <button class="add-btn" onclick="addA()">+ máquina ativa</button>
@@ -50,9 +60,9 @@
 
     <div class="card">
       <div class="card-head"><span>Em negociação / escritório</span><span id="bdg-n" class="badge ba">7 pendentes</span></div>
-      <table><thead><tr><th style="width:30px">ID</th><th>Máquina</th><th>Situação</th><th class="num" style="width:120px">R$/mês prev.</th><th style="width:75px">Previsão</th><th style="width:28px"></th></tr></thead>
+      <table><thead><tr><th style="width:30px">ID</th><th>Máquina</th><th>Situação</th><th class="num" style="width:120px">R$/mês prev.</th><th style="width:75px">Previsão</th><th style="width:118px">Ação</th><th style="width:28px"></th></tr></thead>
       <tbody id="tb-n"></tbody>
-      <tr class="tot"><td colspan="3">Total previsto</td><td class="num" id="tot-n">—</td><td></td><td></td></tr></table>
+      <tr class="tot"><td colspan="3">Total previsto</td><td class="num" id="tot-n">—</td><td></td><td></td><td></td></tr></table>
       <button class="add-btn" onclick="addN()">+ adicionar</button>
     </div>
 
@@ -84,6 +94,7 @@
 
   <!-- DISTRIBUIÇÃO -->
   <div id="page-dist" class="page">
+    <p id="dist-periodo" class="toolbar-status" style="margin-bottom:10px;font-weight:500;color:var(--text)"></p>
     <div id="banner" class="banner"></div>
     <div class="srow" id="scards"></div>
     <div class="card">

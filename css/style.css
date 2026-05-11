@@ -60,6 +60,24 @@ input[type=text]:focus { outline: none; border-bottom: 1.5px solid var(--text); 
 .del-btn { border: none; background: none; cursor: pointer; color: var(--muted); opacity: .35; padding: 0 4px; font-size: 13px; transition: opacity .15s; }
 .del-btn:hover { opacity: 1; color: var(--red); }
 
+.to-neg-btn {
+  font-size: 11px;
+  padding: 5px 8px;
+  border: 0.5px solid var(--amber-bd);
+  border-radius: var(--radius-sm);
+  background: var(--amber-bg);
+  color: var(--amber);
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.to-neg-btn:hover {
+  background: var(--amber-bg);
+  filter: brightness(0.97);
+}
+
 .badge { font-size: 11px; padding: 2px 9px; border-radius: 20px; font-weight: 500; }
 .bg { background: var(--green-bg); color: var(--green); }
 .ba { background: var(--amber-bg); color: var(--amber); }
