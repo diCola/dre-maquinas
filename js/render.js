@@ -8,35 +8,21 @@ function mesKeyFromSelectors() {
   return mesKeyNum(ano, mv);
 }
 
-function snapshotPayload() {
-  return normalizePayload({
-    A,
-    N,
-    F,
-    V,
-    R,
-    n1: document.getElementById('n1') ? document.getElementById('n1').value : 'Sócio 1',
-    n2: document.getElementById('n2') ? document.getElementById('n2').value : 'Sócio 2',
-    n3: document.getElementById('n3') ? document.getElementById('n3').value : 'Sócio 3',
-  });
-}
-
-function applyMonthKey(key) {
-  const raw = porMes[key];
-  const p = raw !== undefined ? normalizePayload(raw) : payloadForNewMonth(key);
-  assignArraysFromPayload(p);
+function saveCurrentMonthNames() {
+  if (!lastMesKey) return;
+  ensureMesPayload(lastMesKey);
   const n1el = document.getElementById('n1');
   const n2el = document.getElementById('n2');
   const n3el = document.getElementById('n3');
-  if (n1el) n1el.value = p.n1;
-  if (n2el) n2el.value = p.n2;
-  if (n3el) n3el.value = p.n3;
+  if (n1el) porMes[lastMesKey].n1 = n1el.value;
+  if (n2el) porMes[lastMesKey].n2 = n2el.value;
+  if (n3el) porMes[lastMesKey].n3 = n3el.value;
 }
 
 function onMesOuAnoChange() {
   const newKey = mesKeyFromSelectors();
   if (lastMesKey !== null && lastMesKey !== newKey) {
-    porMes[lastMesKey] = snapshotPayload();
+    saveCurrentMonthNames();
     savePorMesStorage();
   }
   applyMonthKey(newKey);
@@ -56,14 +42,13 @@ function populateYearSelect() {
 function bindMesAnoSelectors() {
   const mes = document.getElementById('mes');
   const ano = document.getElementById('ano');
-  const fn = () => onMesOuAnoChange();
-  mes.addEventListener('change', fn);
-  ano.addEventListener('change', fn);
+  mes.addEventListener('change', () => onMesOuAnoChange());
+  ano.addEventListener('change', () => onMesOuAnoChange());
 }
 
 function initApp() {
   loadPorMesStorage();
-  seedMaioADezembro2026();
+  initDefaultData();
   populateYearSelect();
   bindMesAnoSelectors();
   lastMesKey = mesKeyFromSelectors();
@@ -78,14 +63,53 @@ function showTab(p, btn) {
   btn.classList.add('active');
   render();
 }
+
+// ─── Helpers de edição ────────────────────────────────────────────────────────
+
+function updateMaqNome(id, value) {
+  const m = maqCatalogo.find(x => x.id === id);
+  if (m) m.n = value;
+  savePorMesStorage();
+}
+
+function updateMaqCliente(id, value) {
+  const m = maqCatalogo.find(x => x.id === id);
+  if (m) m.c = value;
+  savePorMesStorage();
+}
+
+function updateMaqSituacao(id, value) {
+  const m = maqCatalogo.find(x => x.id === id);
+  if (m) m.p = value;
+  savePorMesStorage();
+}
+
+function updateMaqPrevisao(id, value) {
+  const m = maqCatalogo.find(x => x.id === id);
+  if (m) m.pr = value;
+  savePorMesStorage();
+}
+
+// ─── Adicionar / remover ──────────────────────────────────────────────────────
+
 function addA() {
-  A.push({ id: ++nid, n: 'Nova máquina', c: '', v: 0 });
+  const id = ++nid;
+  const mk = mesKeyFromSelectors();
+  maqCatalogo.push({ id, n: 'Nova máquina', c: '', p: '', pr: '' });
+  setStatusEntry(id, mk, 'ativa');
+  setValorAt(id, mk, 0);
   render();
 }
+
 function addN() {
-  N.push({ id: ++nid, n: 'Nova máquina', p: '', v: 0, pr: '' });
+  const id = ++nid;
+  const mk = mesKeyFromSelectors();
+  maqCatalogo.push({ id, n: 'Nova máquina', c: '', p: '', pr: '' });
+  setStatusEntry(id, mk, 'negociacao');
+  setValorAt(id, mk, 0);
   render();
 }
+
 function addF() {
   F.push({ id: ++nid, d: 'Novo custo', v: 0 });
   render();
@@ -98,118 +122,167 @@ function addR() {
   R.push({ id: ++nid, s: '', d: '', dt: '', v: 0, st: 'pendente' });
   render();
 }
-/** Máquinas ativas não podem ser excluídas — só enviadas para negociação. */
-function enviarAtivaParaNegociacao(id) {
-  const i = A.findIndex((x) => x.id === id);
-  if (i === -1) return;
-  const m = A[i];
-  A.splice(i, 1);
-  const cliente = m.c && String(m.c).trim();
-  const p = cliente ? 'Escritório · ' + cliente : 'Escritório';
-  N.push({ id: m.id, n: m.n, p, v: m.v, pr: '' });
-  render();
-}
 
-function enviarNegociacaoParaAtiva(id) {
-  const i = N.findIndex((x) => x.id === id);
-  if (i === -1) return;
-  const m = N[i];
-  N.splice(i, 1);
-  let c = '';
-  const prefix = 'Escritório · ';
-  if (m.p && String(m.p).startsWith(prefix)) {
-    c = String(m.p).slice(prefix.length);
+/** Remove máquina do catálogo e de todo o histórico. */
+function delMaquina(id) {
+  maqCatalogo = maqCatalogo.filter(m => m.id !== id);
+  delete maqStatus[id];
+  for (const key of Object.keys(porMes)) {
+    if (porMes[key].maqV) delete porMes[key].maqV[id];
   }
-  A.push({ id: m.id, n: m.n, c, v: m.v });
   render();
 }
 
+/** Remove item de F, V ou R (máquinas ativas não são deletáveis). */
 function del(arr, id) {
-  if (arr === A) return;
   const i = arr.findIndex((x) => x.id === id);
   if (i > -1) arr.splice(i, 1);
   render();
 }
 
+// ─── Movimentação de status ───────────────────────────────────────────────────
+
+/**
+ * Move máquina para "Em negociação / escritório" a partir do mês atual.
+ * Todos os meses seguintes herdarão o novo status automaticamente.
+ */
+function enviarAtivaParaNegociacao(id) {
+  const mk = mesKeyFromSelectors();
+  const m = maqCatalogo.find(x => x.id === id);
+  if (!m || statusAt(id, mk) !== 'ativa') return;
+  const v = valorAt(id, mk);
+  const cliente = m.c && String(m.c).trim();
+  m.p = cliente ? 'Escritório · ' + cliente : 'Escritório';
+  setStatusEntry(id, mk, 'negociacao');
+  setValorAt(id, mk, v);
+  render();
+}
+
+/**
+ * Move máquina para "Máquinas ativas" a partir do mês atual.
+ * Todos os meses seguintes herdarão o novo status automaticamente.
+ */
+function enviarNegociacaoParaAtiva(id) {
+  const mk = mesKeyFromSelectors();
+  const m = maqCatalogo.find(x => x.id === id);
+  if (!m || statusAt(id, mk) !== 'negociacao') return;
+  const v = valorAt(id, mk);
+  const prefix = 'Escritório · ';
+  if (m.p && String(m.p).startsWith(prefix)) {
+    m.c = String(m.p).slice(prefix.length);
+  }
+  setStatusEntry(id, mk, 'ativa');
+  setValorAt(id, mk, v);
+  render();
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+
 function render() {
+  const mk = mesKeyFromSelectors();
   const n1 = document.getElementById('n1') ? document.getElementById('n1').value : 'Sócio 1';
   const n2 = document.getElementById('n2') ? document.getElementById('n2').value : 'Sócio 2';
   const n3 = document.getElementById('n3') ? document.getElementById('n3').value : 'Sócio 3';
-  let sA = 0;
-  let sN = 0;
-  let sF = 0;
-  let sV = 0;
-  let sR = 0;
+
+  // Deriva ativas e negociação a partir do catálogo + histórico de status
+  const ativasArr = maqCatalogo
+    .filter(m => statusAt(m.id, mk) === 'ativa')
+    .sort((a, b) => a.id - b.id)
+    .map(m => ({ ...m, v: valorAt(m.id, mk) }));
+
+  const negArr = maqCatalogo
+    .filter(m => statusAt(m.id, mk) === 'negociacao')
+    .sort((a, b) => a.id - b.id)
+    .map(m => ({ ...m, v: valorAt(m.id, mk) }));
+
+  let sA = 0, sN = 0, sF = 0, sV = 0, sR = 0;
   let tb;
 
-  document.getElementById('bdg-a').textContent = A.length + ' alugada' + (A.length !== 1 ? 's' : '');
-  document.getElementById('bdg-n').textContent = N.length + ' pendentes';
+  document.getElementById('bdg-a').textContent = ativasArr.length + ' alugada' + (ativasArr.length !== 1 ? 's' : '');
+  document.getElementById('bdg-n').textContent = negArr.length + ' pendentes';
 
+  // Máquinas ativas
   tb = document.getElementById('tb-a');
   tb.innerHTML = '';
-  A.forEach((m, i) => {
+  ativasArr.forEach((m) => {
     sA += m.v;
-    const f = i < 12 ? 1 : 2;
+    const f = m.id < 13 ? 1 : 2;
     const roy = m.v === 0 && m.c === 'ROYALTY';
     tb.innerHTML += `<tr>
       <td style="color:var(--hint);font-size:11px">${m.id}</td>
-      <td><input type="text" value="${m.n}" onchange="A[${i}].n=this.value"></td>
-      <td><input type="text" value="${m.c}" onchange="A[${i}].c=this.value"></td>
-      <td class="num">${roy ? '<span style="font-size:11px;color:var(--hint)">royalty </span>' : ''}<input class="ed" type="text" value="${fmt(m.v)}" onchange="A[${i}].v=pv(this.value);render()"></td>
+      <td><input type="text" value="${esc(m.n)}" onchange="updateMaqNome(${m.id},this.value)"></td>
+      <td><input type="text" value="${esc(m.c)}" onchange="updateMaqCliente(${m.id},this.value)"></td>
+      <td class="num">${roy ? '<span style="font-size:11px;color:var(--hint)">royalty </span>' : ''}<input class="ed" type="text" value="${fmt(m.v)}" onchange="setValorAt(${m.id},'${mk}',pv(this.value));render()"></td>
       <td style="width:72px"><span class="fase-tag ft${f}">fase ${f}</span></td>
-      <td><button type="button" class="to-neg-btn" onclick="enviarAtivaParaNegociacao(${m.id})" title="Enviar para «Em negociação / escritório». Máquinas ativas não podem ser excluídas.">→ Escritorio</button></td>
+      <td><button type="button" class="to-neg-btn" onclick="enviarAtivaParaNegociacao(${m.id})" title="Enviar para Em negociação / escritório. Máquinas ativas não podem ser excluídas.">→ Escritório</button></td>
     </tr>`;
   });
   document.getElementById('tot-a').textContent = 'R$ ' + fmt(sA);
 
+  // Em negociação / escritório
   tb = document.getElementById('tb-n');
   tb.innerHTML = '';
-  N.forEach((m, i) => {
+  negArr.forEach((m) => {
     sN += m.v;
     const ne = m.p === 'NÃO EXISTE';
     tb.innerHTML += `<tr>
       <td style="color:var(--hint);font-size:11px">${m.id}</td>
-      <td><input type="text" value="${m.n}" onchange="N[${i}].n=this.value"></td>
-      <td><input type="text" value="${m.p}" onchange="N[${i}].p=this.value" style="${ne ? 'color:var(--red);font-weight:500' : ''}"></td>
-      <td class="num"><input class="ed" type="text" value="${fmt(m.v)}" onchange="N[${i}].v=pv(this.value);render()"></td>
-      <td><input type="text" value="${m.pr}" onchange="N[${i}].pr=this.value" placeholder="mês/ano" style="width:68px;font-size:12px"></td>
+      <td><input type="text" value="${esc(m.n)}" onchange="updateMaqNome(${m.id},this.value)"></td>
+      <td><input type="text" value="${esc(m.p)}" onchange="updateMaqSituacao(${m.id},this.value)" style="${ne ? 'color:var(--red);font-weight:500' : ''}"></td>
+      <td class="num"><input class="ed" type="text" value="${fmt(m.v)}" onchange="setValorAt(${m.id},'${mk}',pv(this.value));render()"></td>
+      <td><input type="text" value="${esc(m.pr)}" onchange="updateMaqPrevisao(${m.id},this.value)" placeholder="mês/ano" style="width:68px;font-size:12px"></td>
       <td><button type="button" class="to-neg-btn" onclick="enviarNegociacaoParaAtiva(${m.id})" title="Mover para Máquinas ativas">→ Ativas</button></td>
-      <td><button class="del-btn" onclick="del(N,${m.id})">✕</button></td>
+      <td><button class="del-btn" onclick="delMaquina(${m.id})">✕</button></td>
     </tr>`;
   });
   document.getElementById('tot-n').textContent = 'R$ ' + fmt(sN);
 
+  // Custos fixos
   tb = document.getElementById('tb-f');
   tb.innerHTML = '';
   F.forEach((c, i) => {
     sF += c.v;
-    tb.innerHTML += `<tr><td><input type="text" value="${c.d}" onchange="F[${i}].d=this.value"></td><td class="num"><input class="ed" type="text" value="${fmt(c.v)}" onchange="F[${i}].v=pv(this.value);render()"></td><td><button class="del-btn" onclick="del(F,${c.id})">✕</button></td></tr>`;
+    tb.innerHTML += `<tr>
+      <td><input type="text" value="${esc(c.d)}" onchange="F[${i}].d=this.value"></td>
+      <td class="num"><input class="ed" type="text" value="${fmt(c.v)}" onchange="F[${i}].v=pv(this.value);render()"></td>
+      <td><button class="del-btn" onclick="del(F,${c.id})">✕</button></td>
+    </tr>`;
   });
   document.getElementById('tot-f').textContent = 'R$ ' + fmt(sF);
 
+  // Custos variáveis
   tb = document.getElementById('tb-v');
   tb.innerHTML = '';
   V.forEach((c, i) => {
     sV += c.v;
-    tb.innerHTML += `<tr><td><input type="text" value="${c.d}" onchange="V[${i}].d=this.value"></td><td class="num"><input class="ed" type="text" value="${fmt(c.v)}" onchange="V[${i}].v=pv(this.value);render()"></td><td><button class="del-btn" onclick="del(V,${c.id})">✕</button></td></tr>`;
+    tb.innerHTML += `<tr>
+      <td><input type="text" value="${esc(c.d)}" onchange="V[${i}].d=this.value"></td>
+      <td class="num"><input class="ed" type="text" value="${fmt(c.v)}" onchange="V[${i}].v=pv(this.value);render()"></td>
+      <td><button class="del-btn" onclick="del(V,${c.id})">✕</button></td>
+    </tr>`;
   });
   document.getElementById('tot-v').textContent = 'R$ ' + fmt(sV);
 
+  // Reembolsos
   tb = document.getElementById('tb-r');
   tb.innerHTML = '';
   R.forEach((r, i) => {
     if (r.st === 'pendente') sR += r.v;
     tb.innerHTML += `<tr>
-      <td><input type="text" value="${r.s}" onchange="R[${i}].s=this.value" placeholder="nome"></td>
-      <td><input type="text" value="${r.d}" onchange="R[${i}].d=this.value" placeholder="descrição"></td>
-      <td><input type="text" value="${r.dt}" onchange="R[${i}].dt=this.value" placeholder="dd/mm" style="width:62px"></td>
+      <td><input type="text" value="${esc(r.s)}" onchange="R[${i}].s=this.value" placeholder="nome"></td>
+      <td><input type="text" value="${esc(r.d)}" onchange="R[${i}].d=this.value" placeholder="descrição"></td>
+      <td><input type="text" value="${esc(r.dt)}" onchange="R[${i}].dt=this.value" placeholder="dd/mm" style="width:62px"></td>
       <td class="num"><input class="ed" type="text" value="${fmt(r.v)}" onchange="R[${i}].v=pv(this.value);render()"></td>
-      <td><select class="st" onchange="R[${i}].st=this.value;render()"><option value="pendente" ${r.st === 'pendente' ? 'selected' : ''}>pendente</option><option value="pago" ${r.st === 'pago' ? 'selected' : ''}>pago</option></select></td>
+      <td><select class="st" onchange="R[${i}].st=this.value;render()">
+        <option value="pendente"${r.st === 'pendente' ? ' selected' : ''}>pendente</option>
+        <option value="pago"${r.st === 'pago' ? ' selected' : ''}>pago</option>
+      </select></td>
       <td><button class="del-btn" onclick="del(R,${r.id})">✕</button></td>
     </tr>`;
   });
   document.getElementById('tot-r').textContent = 'R$ ' + fmt(sR);
 
+  // Resultado operacional
   const tc = sF + sV + sR;
   const op = sA - tc;
   document.getElementById('r-rec').textContent = 'R$ ' + fmt(sA);
@@ -219,42 +292,39 @@ function render() {
   el.textContent = 'R$ ' + fmt(op);
   el.className = 'num ' + (op >= 0 ? 'pos' : 'neg');
 
-  calcDist(A, sA, tc, n1, n2, n3);
+  calcDist(ativasArr, sA, tc, n1, n2, n3);
 
-  const k = mesKeyFromSelectors();
-  porMes[k] = snapshotPayload();
-  lastMesKey = k;
+  // Persistir
+  ensureMesPayload(mk);
+  porMes[mk].n1 = n1;
+  porMes[mk].n2 = n2;
+  porMes[mk].n3 = n3;
+  lastMesKey = mk;
   savePorMesStorage();
 
   const dp = document.getElementById('dist-periodo');
-  if (dp) dp.textContent = 'Distribuição — ' + labelMesAno(k);
+  if (dp) dp.textContent = 'Distribuição — ' + labelMesAno(mk);
   const dr = document.getElementById('dre-periodo');
-  if (dr) dr.textContent = 'Receitas das Máquinas — ' + labelMesAno(k);
+  if (dr) dr.textContent = 'Receitas das Máquinas — ' + labelMesAno(mk);
 }
 
 initApp();
 
+// ─── Exportar / Importar ──────────────────────────────────────────────────────
+
 function exportData() {
-  const key = mesKeyFromSelectors();
-  porMes[key] = snapshotPayload();
+  saveCurrentMonthNames();
   savePorMesStorage();
-  const data = {
-    version: 2,
-    ano: parseInt(document.getElementById('ano').value, 10),
-    nid,
-    meses: porMes,
-  };
+  const data = { version: 3, nid, maqCatalogo, maqStatus, porMes };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const ano = document.getElementById('ano').value;
   a.href = url;
-  a.download = 'dre-maquinas-' + ano + '-todos-meses.json';
+  a.download = 'dre-maquinas-' + new Date().toISOString().slice(0, 10) + '.json';
   a.click();
   URL.revokeObjectURL(url);
   const st = document.getElementById('save-status');
-  st.textContent =
-    'Salvo JSON (todos os meses): ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  st.textContent = 'Salvo: ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   setTimeout(() => (st.textContent = ''), 4000);
 }
 
@@ -265,51 +335,44 @@ function importData(event) {
   reader.onload = function (e) {
     try {
       const data = JSON.parse(e.target.result);
-      if (data.version === 2 && data.meses && typeof data.meses === 'object') {
-        porMes = data.meses;
+
+      // Limpa estado global
+      maqCatalogo = [];
+      maqStatus = {};
+      porMes = {};
+      nid = 200;
+
+      if (data.version === 3) {
         if (data.nid != null) nid = data.nid;
-        if (data.ano != null) document.getElementById('ano').value = String(data.ano);
-        lastMesKey = mesKeyFromSelectors();
-        applyMonthKey(lastMesKey);
+        if (Array.isArray(data.maqCatalogo)) maqCatalogo = data.maqCatalogo;
+        if (data.maqStatus) maqStatus = data.maqStatus;
+        if (data.porMes) porMes = data.porMes;
+      } else if (data.version === 2 && data.meses) {
+        migrateFromV2({ porMes: data.meses, nid: data.nid });
+        if (data.nid != null) nid = data.nid;
       } else {
-        const p = normalizePayload({
-          A: data.A,
-          N: data.N,
-          F: data.F,
-          V: data.V,
-          R: data.R,
-          n1: data.n1,
-          n2: data.n2,
-          n3: data.n3,
-        });
-        const ano =
-          data.ano != null ? String(data.ano) : document.getElementById('ano').value;
-        if (data.mes) {
-          const mi = MESES.indexOf(data.mes);
-          if (mi >= 0) document.getElementById('mes').value = String(mi + 1);
-        }
-        document.getElementById('ano').value = ano;
-        const key = mesKeyFromSelectors();
-        porMes[key] = p;
-        lastMesKey = key;
-        assignArraysFromPayload(p);
-        const n1el = document.getElementById('n1');
-        const n2el = document.getElementById('n2');
-        const n3el = document.getElementById('n3');
-        if (n1el) n1el.value = p.n1;
-        if (n2el) n2el.value = p.n2;
-        if (n3el) n3el.value = p.n3;
+        // v1 ou formato livre — tenta tratar como payload único
+        const guessKey = (() => {
+          if (data.ano) {
+            const mesIdx = data.mes ? MESES.indexOf(data.mes) : -1;
+            return mesKeyNum(data.ano, mesIdx >= 0 ? mesIdx + 1 : 5);
+          }
+          return '2026-05';
+        })();
+        migrateFromV2({ porMes: { [guessKey]: data } });
       }
-      render();
+
+      initDefaultData();
       savePorMesStorage();
+      lastMesKey = mesKeyFromSelectors();
+      applyMonthKey(lastMesKey);
+      render();
+
       const st = document.getElementById('save-status');
       st.style.color = 'var(--green)';
       st.textContent = '✓ Dados carregados: ' + file.name;
-      setTimeout(() => {
-        st.textContent = '';
-        st.style.color = 'var(--muted)';
-      }, 4000);
-    } catch (err) {
+      setTimeout(() => { st.textContent = ''; st.style.color = 'var(--muted)'; }, 4000);
+    } catch (_) {
       alert('Erro ao carregar arquivo. Verifique se é um JSON válido.');
     }
   };
